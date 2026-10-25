@@ -351,7 +351,7 @@ def execute_via_isolated_subprocess(code, language, stdin=''):
         try:
             # Compile step
             comp = subprocess.run(
-                [gpp_bin, '-O2', '-o', exe_path, src_path],
+                [gpp_bin, '-O2', '-std=c++11', '-o', exe_path, src_path],
                 capture_output=True,
                 text=True,
                 timeout=6.0
@@ -421,7 +421,7 @@ def execute_via_isolated_subprocess(code, language, stdin=''):
         try:
             # Compile step
             comp = subprocess.run(
-                [gcc_bin, '-O2', '-o', exe_path, src_path],
+                [gcc_bin, '-O2', '-std=c11', '-o', exe_path, src_path],
                 capture_output=True,
                 text=True,
                 timeout=6.0

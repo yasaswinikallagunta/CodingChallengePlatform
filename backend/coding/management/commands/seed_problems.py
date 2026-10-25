@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from coding.models import CodingProblem
 from coding.services import ensure_achievements_exist
-from generate_500_problems import generate_problems
+from coding.problem_catalog.builder import sync_database_problems
 
 
 class Command(BaseCommand):
@@ -11,11 +11,8 @@ class Command(BaseCommand):
         self.stdout.write("Ensuring achievements catalog is populated...")
         ensure_achievements_exist()
 
-        self.stdout.write("Generating and seeding 500 unique coding challenges...")
-        problems = generate_problems()
-
-        CodingProblem.objects.all().delete()
-        CodingProblem.objects.bulk_create(problems, batch_size=100)
+        self.stdout.write("Synchronizing 500 unique coding challenges with database...")
+        sync_database_problems()
 
         total = CodingProblem.objects.count()
         easy = CodingProblem.objects.filter(difficulty="Easy").count()
