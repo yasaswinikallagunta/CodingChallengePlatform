@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (typeof window !== 'undefined' && window.location.hostname === 'localhost'
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (window.location.hostname === 'localhost'
     ? 'http://localhost:8000/api'
-    : 'http://127.0.0.1:8000/api');
+    : 'https://codingchallengeplatform.onrender.com/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -11,7 +12,6 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
 // Attach access token to outgoing requests if available
 api.interceptors.request.use(
   (config) => {
