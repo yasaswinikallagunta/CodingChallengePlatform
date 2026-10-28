@@ -31,8 +31,11 @@ from .views import (
 urlpatterns = [
     # Authentication
     path('auth/register/', RegisterView.as_view(), name='auth-register'),
+    path('auth/register', RegisterView.as_view(), name='auth-register-noslash'),
     path('auth/login/', LoginView.as_view(), name='auth-login'),
+    path('auth/login', LoginView.as_view(), name='auth-login-noslash'),
     path('auth/me/', CurrentUserProfileView.as_view(), name='auth-me'),
+    path('auth/me', CurrentUserProfileView.as_view(), name='auth-me-noslash'),
 
     # Problems
     path('problems/', ProblemListView.as_view(), name='problem-list'),

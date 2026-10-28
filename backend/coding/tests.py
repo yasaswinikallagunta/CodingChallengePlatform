@@ -205,3 +205,126 @@ class CodingPlatformAPITests(TestCase):
         ach_res = self.client.get('/api/achievements/')
         self.assertEqual(ach_res.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(ach_res.data), 5)
+
+    def test_09_root_health_check(self):
+        res = self.client.get('/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.json()['status'], 'ok')
+
+        res2 = self.client.get('/health/')
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertEqual(res2.json()['status'], 'ok')
+
+    def test_10_allowed_hosts_and_cors_deployed_origins(self):
+        # Test request with Host: codingchallengeplatform.onrender.com
+        res = self.client.get('/', HTTP_HOST='codingchallengeplatform.onrender.com')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Test preflight OPTIONS request from Render frontend origin
+        res_cors = self.client.options(
+            '/api/auth/login/',
+            HTTP_ORIGIN='https://codingchallengeplatform-frontend.onrender.com',
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD='POST',
+            HTTP_HOST='codingchallengeplatform.onrender.com'
+        )
+        self.assertIn(res_cors.status_code, (status.HTTP_200_OK, status.HTTP_204_NO_CONTENT))
+        self.assertEqual(
+            res_cors.headers.get('Access-Control-Allow-Origin'),
+            'https://codingchallengeplatform-frontend.onrender.com'
+        )
+
+    def test_11_registration_flexible_payloads_and_errors(self):
+        # 1. Register with camelCase 'fullName' and 'confirmPassword'
+        res1 = self.client.post('/api/auth/register/', {
+            'fullName': 'Camel Case User',
+            'email': 'camel@example.com',
+            'username': 'cameluser',
+            'password': 'Password123!',
+            'confirmPassword': 'Password123!'
+        })
+        self.assertEqual(res1.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res1.data['user']['username'], 'cameluser')
+
+        # 2. Register without confirm_password (auto-mirrored to password)
+        res2 = self.client.post('/api/auth/register/', {
+            'full_name': 'No Confirm User',
+            'email': 'noconfirm@example.com',
+            'username': 'noconfirmuser',
+            'password': 'Password123!'
+        })
+        self.assertEqual(res2.status_code, status.HTTP_201_CREATED)
+
+        # 3. Register with duplicate username returns detail and errors dict
+        res3 = self.client.post('/api/auth/register/', {
+            'full_name': 'Duplicate Test',
+            'email': 'unique123@example.com',
+            'username': 'cameluser',
+            'password': 'Password123!'
+        })
+        self.assertEqual(res3.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', res3.data)
+        self.assertIn('errors', res3.data)
+        self.assertIn('username', res3.data['errors'])
+
+        # 4. Register with invalid email
+        res4 = self.client.post('/api/auth/register/', {
+            'email': 'not-an-email',
+            'username': 'invalidemailuser',
+            'password': 'Password123!'
+        })
+        self.assertEqual(res4.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', res4.data)
+
+        # 5. Non-slash registration endpoint
+        res5 = self.client.post('/api/auth/register', {
+            'email': 'noslash@example.com',
+            'username': 'noslashuser',
+            'password': 'Password123!'
+        })
+        self.assertEqual(res5.status_code, status.HTTP_201_CREATED)
+
+    def test_12_login_flexible_payloads_and_validation(self):
+        # Seed test user
+        self.client.post('/api/auth/register/', {
+            'full_name': 'Login Tester',
+            'email': 'logintester@example.com',
+            'username': 'logintester',
+            'password': 'SecurePassword123!'
+        })
+
+        # 1. Login with 'email' field instead of 'username'
+        res1 = self.client.post('/api/auth/login/', {
+            'email': 'logintester@example.com',
+            'password': 'SecurePassword123!'
+        })
+        self.assertEqual(res1.status_code, status.HTTP_200_OK)
+        self.assertIn('tokens', res1.data)
+
+        # 2. Login with uppercase username (case-insensitive fallback)
+        res2 = self.client.post('/api/auth/login/', {
+            'username': 'LOGINTESTER',
+            'password': 'SecurePassword123!'
+        })
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+
+        # 3. Login with missing password -> 400 with detail
+        res3 = self.client.post('/api/auth/login/', {
+            'username': 'logintester'
+        })
+        self.assertEqual(res3.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', res3.data)
+
+        # 4. Login with wrong password -> 401 with detail
+        res4 = self.client.post('/api/auth/login/', {
+            'username': 'logintester',
+            'password': 'WrongPassword999'
+        })
+        self.assertEqual(res4.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('detail', res4.data)
+
+        # 5. Non-slash login endpoint
+        res5 = self.client.post('/api/auth/login', {
+            'username': 'logintester',
+            'password': 'SecurePassword123!'
+        })
+        self.assertEqual(res5.status_code, status.HTTP_200_OK)

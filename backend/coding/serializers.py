@@ -12,30 +12,75 @@ from .models import (
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(write_only=True, required=True)
-    confirm_password = serializers.CharField(write_only=True, required=True)
-    password = serializers.CharField(write_only=True, required=True, min_length=6)
+    full_name = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        default='',
+        trim_whitespace=True
+    )
+    confirm_password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        default=''
+    )
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        min_length=6,
+        error_messages={
+            'min_length': 'Password must be at least 6 characters long.',
+            'required': 'Password is required.',
+            'blank': 'Password cannot be blank.'
+        }
+    )
 
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'full_name', 'password', 'confirm_password')
 
+    def to_internal_value(self, data):
+        # Support camelCase and alternate field aliases from frontend
+        normalized = data.copy() if hasattr(data, 'copy') else dict(data)
+        if 'fullName' in normalized and 'full_name' not in normalized:
+            normalized['full_name'] = normalized['fullName']
+        elif 'name' in normalized and 'full_name' not in normalized:
+            normalized['full_name'] = normalized['name']
+
+        if 'confirmPassword' in normalized and 'confirm_password' not in normalized:
+            normalized['confirm_password'] = normalized['confirmPassword']
+
+        # If confirm_password wasn't provided, mirror password to satisfy validation
+        if 'password' in normalized and ('confirm_password' not in normalized or not normalized['confirm_password']):
+            normalized['confirm_password'] = normalized['password']
+
+        return super().to_internal_value(normalized)
+
     def validate_email(self, value):
         if not value:
             raise serializers.ValidationError("Email is required.")
+        value = value.strip().lower()
+        if '@' not in value or '.' not in value:
+            raise serializers.ValidationError("Please provide a valid email address.")
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
-        return value.lower()
+        return value
 
     def validate_username(self, value):
         if not value:
             raise serializers.ValidationError("Username is required.")
+        value = value.strip()
+        if len(value) < 3:
+            raise serializers.ValidationError("Username must be at least 3 characters long.")
         if User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError("This username is already taken.")
         return value
 
     def validate(self, attrs):
-        if attrs.get('password') != attrs.get('confirm_password'):
+        password = attrs.get('password')
+        confirm_password = attrs.get('confirm_password')
+        if confirm_password and password != confirm_password:
             raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
         return attrs
 
@@ -57,8 +102,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             first_name=first_name,
             last_name=last_name
         )
-        # Create initial user progress
-        UserCodingProgress.objects.create(user=user)
+        # Create initial user progress safely
+        UserCodingProgress.objects.get_or_create(user=user)
         return user
 
 

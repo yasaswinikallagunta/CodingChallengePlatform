@@ -13,8 +13,22 @@ dotenv.load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-development-key-change-in-production-codingplatform2026')
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't')
 
-allowed_hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver')
-ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '')
+base_allowed_hosts = [
+    'codingchallengeplatform.onrender.com',
+    'codingchallengeplatform-frontend.onrender.com',
+    '.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    '0.0.0.0',
+    'testserver',
+]
+if allowed_hosts_env:
+    for host in allowed_hosts_env.split(','):
+        h = host.strip()
+        if h and h not in base_allowed_hosts:
+            base_allowed_hosts.append(h)
+ALLOWED_HOSTS = base_allowed_hosts
 
 # Application definition
 INSTALLED_APPS = [
@@ -126,13 +140,62 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# CORS settings
-cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+# CORS & CSRF settings
+cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
+base_cors_origins = [
+    'https://codingchallengeplatform-frontend.onrender.com',
+    'https://codingchallengeplatform.onrender.com',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+if cors_origins_env:
+    for origin in cors_origins_env.split(','):
+        o = origin.strip()
+        if o and o not in base_cors_origins:
+            base_cors_origins.append(o)
+CORS_ALLOWED_ORIGINS = base_cors_origins
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.onrender\.com$",
+    r"^http://localhost:[0-9]+$",
+    r"^http://127\.0\.0\.1:[0-9]+$",
+]
 CORS_ALLOW_CREDENTIALS = True
-if DEBUG:
-    # Allow local Vite and local network in development
-    CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://codingchallengeplatform-frontend.onrender.com',
+    'https://codingchallengeplatform.onrender.com',
+    'https://*.onrender.com',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Code execution settings
 JUDGE0_API_KEY = os.getenv('JUDGE0_API_KEY', '').strip()

@@ -53,31 +53,52 @@ class RegisterView(APIView):
                     'refresh': str(refresh),
                 }
             }, status=status.HTTP_201_CREATED)
-        return Response({'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Build clear human-readable error string for frontend
+        detail_msg = "Registration failed. Please check the entered information."
+        for field, errs in serializer.errors.items():
+            if isinstance(errs, list) and errs:
+                detail_msg = str(errs[0])
+                break
+            elif isinstance(errs, str):
+                detail_msg = errs
+                break
+
+        return Response({
+            'detail': detail_msg,
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        username = request.data.get('username', '').strip()
+        username = (
+            request.data.get('username') or
+            request.data.get('email') or
+            request.data.get('username_or_email') or
+            ''
+        )
+        if isinstance(username, str):
+            username = username.strip()
         password = request.data.get('password', '')
 
         if not username or not password:
             return Response(
-                {'detail': 'Please provide both username and password.'},
+                {'detail': 'Please provide both username/email and password.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Allow logging in with either username or email
+        # Allow logging in with either username or email (case-insensitive)
         user = authenticate(username=username, password=password)
         if not user:
-            # Check if username passed is actually an email
-            try:
-                user_obj = User.objects.get(email__iexact=username)
+            # Check if username passed is an email or case-insensitive username
+            user_obj = User.objects.filter(
+                Q(email__iexact=username) | Q(username__iexact=username)
+            ).first()
+            if user_obj:
                 user = authenticate(username=user_obj.username, password=password)
-            except User.DoesNotExist:
-                user = None
 
         if not user:
             return Response(
